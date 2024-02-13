@@ -1,0 +1,29 @@
+@inject NavigationManager NavigationManager
+
+<h3>Chart:</h3>
+
+<Chart @ref="_chart" Config="_config" Width="20rem" Height="20rem" />
+
+@code {
+
+    private PieChartConfig _config;
+    private Chart _chart;
+    
+    [Parameter]
+    public int Todo { get; set; }
+    
+    [Parameter]
+    public int Done { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _config = new PieChartConfig();
+        _config.Data.Labels = ["Todo", "Done"];
+        _config.Data.Datasets.Add(new PieDataset
+        {
+            Label = "Todo vs. Done",
+            Data = [Todo, Done],
+            BackgroundColor = ["rgba(255, 99, 132, 0.2)", "rgba(54, 162, 235, 0.2)"]
+        });
+    }
+}

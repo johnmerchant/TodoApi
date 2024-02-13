@@ -1,0 +1,101 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using System.Net
+@using Microsoft.AspNetCore.Antiforgery
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject TodoClient Client
+
+@rendermode InteractiveServer
+
+@attribute [RequireAntiforgeryToken]
+
+@if (_todos is null)
+{
+    <div class="d-flex justify-content-center align-items-center vh-100">
+        <div class="spinner-border" role="status"></div>
+    </div>
+}
+else
+{
+    <h6 class="mb-3">Todo List</h6>
+
+    <EditForm FormName="NewTodoForm" @ref="@_form" Model="@this" OnValidSubmit="@AddTodo" class="d-flex justify-content-center align-items-center mb-4">
+        <DataAnnotationsValidator />
+        <div class="form-outline flex-fill">
+            <InputText autofocus class="form-control form-control-lg" @bind-Value="@NewTodo" placeholder="Type a new todo item"/>
+            <ValidationMessage For="@(() => NewTodo)"/>
+            <button class="btn btn-primary" type="submit">Add Todo</button>
+        </div>
+    </EditForm>
+
+    <ul class="list-group mb-0">
+        @foreach (var todo in _todos)
+        {
+            <li class="list-group-item d-flex justify-content-between align-items-center border-start-0 border-top-0 border-end-0 border-bottom rounded-0 mb-2" @key="@todo.Id">
+                <div class="d-flex align-items-center">
+                    <InputCheckbox class="form-check-input me-2" type="checkbox" @bind-Value="@todo.IsComplete" aria-label="..." @onclick="@(() => ToggleTodo(todo))"/>
+                    @todo.Title
+                </div>
+                <a data-mdb-toggle="tooltip" title="Remove item" style="text-decoration:none" @onclick="@(() => DeleteTodo(todo))">🗙</a>
+            </li>
+        }
+    </ul>
+    
+}
+
+@code {
+    List<TodoItem>? _todos;
+    EditForm? _form;
+    
+    private int TodoCount => _todos?.Count(todo => !todo.IsComplete) ?? 0;
+    private int DoneCount => _todos?.Count(todo => todo.IsComplete) ?? 0;
+
+    [Required]
+    public string? NewTodo { get; set; }
+
+    [Parameter] 
+    public EventCallback OnForbidden { get; set; }
+    
+    [Parameter]
+    public string CurrentToken { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTodos();
+    }
+
+    async Task LoadTodos()
+    {
+        (var statusCode, _todos) = await Client.GetTodosAsync(CurrentToken);
+
+        if (statusCode == HttpStatusCode.Forbidden || statusCode == HttpStatusCode.Unauthorized)
+        {
+            await OnForbidden.InvokeAsync();
+        }
+    }
+
+    async Task AddTodo()
+    {
+        var createdTodo = await Client.AddTodoAsync(NewTodo, CurrentToken);
+        if (createdTodo is not null)
+        {
+            NewTodo = null;
+            _form!.EditContext!.MarkAsUnmodified();
+            _todos!.Add(createdTodo);
+        }
+    }
+
+    async Task DeleteTodo(TodoItem todo)
+    {
+        if (await Client.DeleteTodoAsync(todo.Id, CurrentToken))
+        {
+            _todos!.Remove(todo);
+        }
+    }
+
+    async Task ToggleTodo(TodoItem todo)
+    {
+        todo.IsComplete = !todo.IsComplete;
+        await Client.UpdateTodoAsync(todo, CurrentToken);
+    }
+}

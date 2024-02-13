@@ -1,0 +1,130 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using Todo.Web.Client.Server.Authentication
+@inject TodoClient Client
+
+@rendermode InteractiveServer 
+
+<EditForm FormName="LoginForm" Model="@this" class="form-horizontal py-5" OnValidSubmit="@Login">
+    <DataAnnotationsValidator />
+    <AntiforgeryToken />
+    <div class="mb-3">
+        <label for="username" class="form-label">User name</label>
+        <InputText id="username" class="form-control" @bind-Value="Username"/>
+        <ValidationMessage For="@(() => Username)"/>
+    </div>
+    <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <InputText id="password" type="password" class="form-control" @bind-Value="Password"/>
+        <ValidationMessage For="@(() => Password)"/>
+    </div>
+    <div>
+        <button class="btn btn-primary">Login</button>
+        <button type="button" class="btn btn-secondary" @onclick="@Create">Create User</button>
+    </div>
+</EditForm>
+
+<div class="form-horizontal">
+    @foreach (var provider in SocialProviders)
+    {
+        <a class="btn btn-secondary m-1" role="button" href="auth/login/@provider">@provider</a>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(alertMessage))
+{
+    <div class="alert alert-danger">@alertMessage</div>
+}
+
+@code {
+    string? alertMessage;
+
+    [Required]
+    [StringLength(15)] 
+    public string? Username { get; set; }
+
+    [Required] 
+    [StringLength(32, MinimumLength = 6, ErrorMessage = "The password must be between 6 and 32 characters long.")]
+    [RegularExpression("^(?=.*\\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z])(?=.*[^a-zA-Z\\d]).*$", 
+        MatchTimeoutInMilliseconds = 1000,
+        ErrorMessage = "The password must contain a lower-case letter, an upper-case letter, a digit and a special character.")]
+    public string? Password { get; set; }
+
+    [Parameter] 
+    public EventCallback<string> OnLoggedIn { get; set; }
+
+    [Parameter]
+    public string[] SocialProviders { get; set; } = Array.Empty<string>();
+    
+    [Inject]
+    public AuthClient AuthClient { get; set; }
+    
+    [Inject]
+    public IJSRuntime JSRuntime { get; set; }
+    
+    async Task Login()
+    {
+        await SignIn(new UserInfo { Username = Username!, Password = Password! });
+    }
+
+    async Task SignIn(UserInfo userInfo)
+    {
+        var formData = new Dictionary<string, object>
+        {
+            { "username", userInfo.Username },
+            { "password", userInfo.Password }
+        };
+
+        await JSRuntime.InvokeVoidAsync("submitFormToRazorPage", "/Login", formData);
+    }
+
+
+    async Task Create()
+    {
+        if (string.IsNullOrWhiteSpace(Username))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Password))
+        {
+            return;
+        }
+        var userInfo = new UserInfo { Username = Username, Password = Password };
+        
+        var token = await AuthClient.CreateUserAsync(userInfo);
+
+        if (token is null)
+        {
+            alertMessage = "User creation failed";
+            return;
+        }
+
+        await SignIn(userInfo);
+    }
+}
+
+<script type="text/javascript">
+    function submitFormToRazorPage(actionUrl, formData) {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = actionUrl;
+        
+        formData['__RequestVerificationToken'] = document.querySelector('input[name="__RequestVerificationToken"]').value;
+    
+        for (const key in formData) {
+            if (formData.hasOwnProperty(key)) {
+                const hiddenField = document.createElement('input');
+                hiddenField.type = 'hidden';
+                hiddenField.name = key;
+                hiddenField.value = formData[key];
+                form.appendChild(hiddenField);
+            }
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+</script>

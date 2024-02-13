@@ -1,0 +1,44 @@
+﻿@using Todo.Web.Client.Server.Authentication
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <base href="/"/>
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css"/>
+    <link rel="stylesheet" href="app.css"/>
+    <link rel="stylesheet" href="Todo.Web.Client.Server.styles.css"/>
+    <link rel="icon" type="image/png" href="favicon.png"/>
+    <HeadOutlet/>
+</head>
+
+<body>
+<TodoApp CurrentUser="@CurrentUserName" CurrentToken="@CurrentToken" SocialProviders="ProviderNames" />
+<script src="_framework/blazor.web.js"></script>
+<script src="_content/PSC.Blazor.Components.Chartjs/lib/Chart.js/chart.js"></script>
+<script src="_content/PSC.Blazor.Components.Chartjs/Chart.js" type="module"></script>
+</body>
+
+</html>
+
+@code {
+
+    [Inject]
+    public ExternalProviders SocialProviders { get; set; }
+    
+    [CascadingParameter]
+    public HttpContext? HttpContext { get; set; }
+    
+    public string[] ProviderNames { get; set; } = default!;
+    public string? CurrentUserName { get; set; }
+    public string? CurrentToken { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        ProviderNames = await SocialProviders.GetProviderNamesAsync();
+        CurrentUserName = HttpContext?.User.Identity!.Name;
+        CurrentToken = HttpContext?.Session.GetString(TokenNames.AccessToken);
+    }
+}

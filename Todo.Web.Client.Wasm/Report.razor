@@ -1,0 +1,36 @@
+@inject NavigationManager NavigationManager
+
+<h2>Report</h2>
+
+<button @onclick="LoadChart">Load Chart</button>
+
+@if (_loading)
+{
+    <p><em>Loading...</em></p>
+}
+else if (_loaded)
+{
+    <PieChart Todo="@_todo" Done="@_done" />
+}
+
+@code {
+
+    private int _todo;
+    private int _done;
+    private bool _loading;
+    private bool _loaded;
+    
+    protected async Task LoadChart()
+    {
+        _loading = true;
+        
+        var client = new HttpClient { BaseAddress = new Uri(NavigationManager.BaseUri) };
+        var todos = await client.GetFromJsonAsync<TodoItem[]>("/todos");
+        
+        _todo = todos?.Count(z => z.IsComplete) ?? 0;
+        _done = todos?.Count(z => !z.IsComplete) ?? 0;
+
+        _loading = false;
+        _loaded = true;
+    }
+}
